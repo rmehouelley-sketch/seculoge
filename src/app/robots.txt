@@ -1,0 +1,27 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://seculoge.bj/sitemap.xml
+
+# Crawl delay for better server performance
+Crawl-delay: 5
+
+# Disallow crawling of admin and private pages
+Disallow: /gestion
+Disallow: /connexion
+Disallow: /inscription
+Disallow: /mot-de-passe-oublie
+Disallow: /locataire
+Disallow: /proprietaire
+
+# Allow all other pages
+Allow: /$
+Allow: /logements
+Allow: /logements/*
+Allow: /comment-ca-marche
+Allow: /a-propos
+Allow: /contact
+Allow: /faq
+Allow: /cgv
+Allow: /confidentialite
+Allow: /mentions-legales

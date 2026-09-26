@@ -1,0 +1,464 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// USER & AUTHENTICATION
+// ============================================
+
+enum UserRole {
+  TENANT
+  OWNER
+  AGENT
+  ADMIN
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String
+  firstName     String
+  lastName      String
+  phone         String
+  role          UserRole  @default(TENANT)
+  emailVerified Boolean   @default(false)
+  phoneVerified Boolean   @default(false)
+  avatarUrl     String?
+  
+  // Profile data
+  tenantProfile TenantProfile?
+  ownerProfile  OwnerProfile?
+  agentProfile  AgentProfile?
+  
+  // Relationships
+  favorites     Favorite[]
+  visits        Visit[]    @relation("UserVisits")
+  ownedVisits   Visit[]    @relation("OwnerVisits")
+  rentals       Rental[]
+  payments      Payment[]
+  notifications Notification[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TenantProfile {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dateOfBirth     DateTime?
+  occupation      String?
+  employer        String?
+  monthlyIncome   Int?      // in FCFA
+  emergencyContact String?
+  emergencyPhone  String?
+  
+  // Documents
+  idCardUrl       String?
+  proofOfIncomeUrl String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model OwnerProfile {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyName  String?
+  companyRegNo String?
+  taxId        String?
+  bankAccount  String?
+  
+  // Relationships
+  properties   Property[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AgentProfile {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  employeeId  String?
+  department  String?
+  position    String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================
+// PROPERTIES
+// ============================================
+
+enum PropertyType {
+  STUDIO
+  APARTMENT
+  HOUSE
+  VILLA
+  DUPLEX
+  ROOM
+  COMMERCIAL
+}
+
+enum PropertyStatus {
+  DRAFT
+  PENDING_REVIEW
+  VISIT_SCHEDULED
+  VERIFIED
+  PUBLISHED
+  RENTED
+  REFUSED
+  ARCHIVED
+}
+
+model Property {
+  id               String        @id @default(cuid())
+  title            String
+  description      String
+  
+  // Location
+  city             String
+  district         String        // Quartier
+  address          String
+  latitude         Float?
+  longitude        Float?
+  
+  // Property details
+  type             PropertyType
+  roomCount        Int
+  bedroomCount     Int
+  bathroomCount    Int?
+  area             Float?        // in m²
+  floor            Int?
+  
+  // Pricing
+  monthlyRent      Int           // in FCFA
+  securityDeposit  Int?          // in FCFA
+  
+  // Status
+  status           PropertyStatus @default(DRAFT)
+  isAvailable      Boolean        @default(true)
+  availableFrom    DateTime?
+  
+  // Owner
+  ownerId          String
+  owner            User          @relation(fields: [ownerId], references: [id])
+  
+  // Utilities
+  hasWater         Boolean        @default(false)
+  hasWaterMeter    Boolean        @default(false)
+  hasElectricity   Boolean        @default(false)
+  hasElectricMeter Boolean        @default(false)
+  hasInternet      Boolean        @default(false)
+  hasFurniture     Boolean        @default(false)
+  hasAirConditioning Boolean      @default(false)
+  hasParking       Boolean        @default(false)
+  hasGarden        Boolean        @default(false)
+  hasSecurity      Boolean        @default(false)
+  
+  // Verification
+  isVerified       Boolean        @default(false)
+  verificationDate DateTime?
+  verifiedById     String?
+  verifiedBy       User?          @relation(fields: [verifiedById], references: [id])
+  verificationNotes String?
+  
+  // Relationships
+  images           PropertyImage[]
+  visits           Visit[]
+  rentals          Rental[]
+  favorites        Favorite[]
+  verification     Verification?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PropertyImage {
+  id        String   @id @default(cuid())
+  propertyId String
+  property  Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  url       String
+  isPrimary Boolean  @default(false)
+  order     Int      @default(0)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Verification {
+  id           String   @id @default(cuid())
+  propertyId   String   @unique
+  property     Property @relation(fields: [propertyId], references: [id])
+  scheduledAt  DateTime
+  completedAt  DateTime?
+  agentId      String
+  agent        User     @relation(fields: [agentId], references: [id])
+  status       String   // Could be an enum, but keeping flexible for now
+  notes        String?
+  photosTaken  Int      @default(0)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================
+// FAVORITES
+// ============================================
+
+model Favorite {
+  id         String   @id @default(cuid())
+  tenantId   String
+  tenant     User     @relation(fields: [tenantId], references: [id])
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id])
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@unique([tenantId, propertyId])
+}
+
+// ============================================
+// VISITS
+// ============================================
+
+enum VisitStatus {
+  REQUESTED
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  RESCHEDULED
+}
+
+model Visit {
+  id           String      @id @default(cuid())
+  propertyId   String
+  property     Property    @relation(fields: [propertyId], references: [id])
+  tenantId     String?
+  tenant       User?       @relation("UserVisits", fields: [tenantId], references: [id])
+  ownerId      String?
+  owner        User?       @relation("OwnerVisits", fields: [ownerId], references: [id])
+  agentId      String?
+  agent        User?       @relation(fields: [agentId], references: [id])
+  
+  // Timing
+  scheduledAt  DateTime
+  duration     Int?        // in minutes
+  completedAt  DateTime?
+  
+  // Status
+  status       VisitStatus @default(REQUESTED)
+  
+  // Notes
+  tenantNotes  String?
+  ownerNotes   String?
+  agentNotes   String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================
+// RENTALS
+// ============================================
+
+enum RentalStatus {
+  PENDING
+  ACTIVE
+  COMPLETED
+  CANCELLED
+  TERMINATED
+}
+
+model Rental {
+  id           String       @id @default(cuid())
+  propertyId   String
+  property     Property     @relation(fields: [propertyId], references: [id])
+  tenantId     String
+  tenant       User         @relation(fields: [tenantId], references: [id])
+  ownerId      String
+  owner        User         @relation(fields: [ownerId], references: [id])
+  
+  // Contract details
+  startDate    DateTime
+  endDate      DateTime?
+  monthlyRent  Int          // in FCFA
+  securityDeposit Int      // in FCFA
+  
+  // Status
+  status       RentalStatus @default(PENDING)
+  
+  // Documents
+  contractUrl  String?
+  
+  // Notes
+  notes        String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================
+// PAYMENTS
+// ============================================
+
+enum PaymentType {
+  RENT
+  DEPOSIT
+  FEE
+  OTHER
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  MOBILE_MONEY
+  CARD
+}
+
+model Payment {
+  id          String        @id @default(cuid())
+  rentalId    String?
+  rental      Rental?       @relation(fields: [rentalId], references: [id])
+  userId      String
+  user        User          @relation(fields: [userId], references: [id])
+  
+  // Payment details
+  type        PaymentType
+  amount      Int           // in FCFA
+  currency    String       @default("XOF")
+  method      PaymentMethod
+  reference   String?       // Transaction reference
+  
+  // Status
+  status      PaymentStatus @default(PENDING)
+  
+  // Dates
+  dueDate     DateTime?
+  paidAt      DateTime?
+  
+  // Notes
+  notes       String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================
+// DEPOSITS
+// ============================================
+
+enum DepositStatus {
+  HELD
+  RETURNED
+  PARTIALLY_RETURNED
+  FORFEITED
+}
+
+model Deposit {
+  id          String        @id @default(cuid())
+  rentalId    String
+  rental      Rental        @relation(fields: [rentalId], references: [id])
+  
+  // Deposit details
+  amount      Int           // in FCFA
+  currency    String       @default("XOF")
+  
+  // Status
+  status      DepositStatus @default(HELD)
+  
+  // Return details
+  returnAmount Int?
+  returnDate  DateTime?
+  returnNotes String?
+  
+  // Inspection
+  inspectionDate DateTime?
+  inspectionNotes String?
+  hasDamages    Boolean     @default(false)
+  damageAmount  Int?        // in FCFA
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================
+// NOTIFICATIONS
+// ============================================
+
+enum NotificationType {
+  INFO
+  WARNING
+  SUCCESS
+  ERROR
+}
+
+model Notification {
+  id          String           @id @default(cuid())
+  userId      String
+  user        User             @relation(fields: [userId], references: [id])
+  
+  // Content
+  title       String
+  message     String
+  type        NotificationType @default(INFO)
+  
+  // Status
+  isRead      Boolean          @default(false)
+  
+  // Related entities
+  propertyId  String?
+  visitId     String?
+  rentalId    String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================
+// APPLICATION SETTINGS
+// ============================================
+
+model ApplicationSettings {
+  id                    String   @id @default(cuid())
+  
+  // Fees
+  tenantFeePercentage   Float    @default(25)
+  
+  // Deposit settings
+  depositReturnDelayHours Int    @default(48)
+  
+  // Company info
+  companyName           String?  @default("SécuLoge")
+  companyEmail          String?
+  companyPhone          String?
+  companyAddress        String?
+  
+  // Branding
+  primaryColor          String?  @default("#2563eb")
+  secondaryColor        String?  @default("#64748b")
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@unique([id])
+}

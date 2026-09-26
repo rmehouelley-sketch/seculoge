@@ -1,0 +1,47 @@
+{
+  "name": "SécuLoge - Votre logement. En toute confiance.",
+  "short_name": "SécuLoge",
+  "description": "SécuLoge simplifie la recherche et la location de logements au Bénin. Trouvez votre logement en toute confiance.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#2563eb",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "any",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshot-1.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "SécuLoge - Accueil"
+    },
+    {
+      "src": "/screenshot-2.png",
+      "sizes": "720x1280",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "SécuLoge - Mobile"
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false,
+  "iarc_entitlements": {
+    "cloudkit": {}
+  }
+}
